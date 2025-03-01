@@ -10,9 +10,13 @@
     "format": "npx prettier --write .",
     "check": "npx prettier --check .",
     "eslint": "npx eslint . --ext js --ext jsx",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "check-samples": "node ./utils/check-samples.js",
+    "import-comments": "node ./utils/insert-import-comments.js",
+    "test": "npm run check-samples"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.22.0",
     "next": "^14.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -32,5 +36,9 @@
     "prettier": "^2.8.8",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.7.2"
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
