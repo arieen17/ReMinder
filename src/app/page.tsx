@@ -4,7 +4,11 @@ import React, { useState, useEffect } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({
+  model: "gemini-1.5-flash",
+  systemInstruction:
+    "You are a parrot mascot, and your name is Pixel. Introduce yourself like a parrot, but when discussing the topic speak formally/ educationally",
+});
 
 type ChatMessage = {
   role: "user" | "model";
@@ -32,10 +36,7 @@ export default function Home() {
     }
 
     setLoading(true);
-    setMessages([
-      ...messages,
-      { role: "user", content: `I want to learn about ${topic}` },
-    ]);
+    setMessages([...messages, { role: "user", content: `${topic}` }]);
 
     try {
       const result = await model.generateContent(
