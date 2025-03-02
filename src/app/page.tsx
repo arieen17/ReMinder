@@ -10,7 +10,6 @@ export default function Main() {
       <Image src={pixel} alt="pixel the parrot" className="w-64 h-62" />
       <h1 className="text-4xl font-bold mb-8">Welcome to ReMinder</h1>
       <p className="text-xl mb-5">
-        {" "}
         Study with Pixel to help you remember everything!
       </p>
       <div className="flex space-x-8">

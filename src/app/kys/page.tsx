@@ -318,7 +318,11 @@ export default function Home() {
               msg.role === "user" ? "text-right" : "text-left"
             }`}
           >
-            <div className="flex">
+            <div
+              className={`flex items-center ${
+                msg.role === "user" ? "justify-end" : ""
+              }`}
+            >
               <Image
                 src={pixel}
                 alt="pixel the parrot"
