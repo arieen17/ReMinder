@@ -44,7 +44,7 @@ export default function Home() {
   const [isPassageVisible, setIsPassageVisible] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
   const [instructionsModal, setInstructions] = useState<boolean>(true);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfFile, setPDFFile] = useState<File | null>(null);
 
   const [speed, setSpeed] = useState<number>(1);
   const [volume, setVolume] = useState<number>(1);
@@ -105,11 +105,11 @@ export default function Home() {
     shouldSpeak.current = true;
   }, [messages]);
 
-  const handlePdfChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handlePDFChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const pdf = event.target.files[0];
       if (pdf.type === "application/pdf") {
-        setPdfFile(pdf);
+        setPDFFile(pdf);
         setMessages([
           ...messages,
           { role: "user", content: "Uploaded PDF" },
@@ -356,7 +356,7 @@ export default function Home() {
           <input
             type="file"
             accept="application/pdf"
-            onChange={handlePdfChange}
+            onChange={handlePDFChange}
             className="mb-4"
           />
         </div>

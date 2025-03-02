@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, ChangeEvent } from "react";
+import React, { useState, useEffect, ChangeEvent, useRef } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Send, X } from "lucide-react";
 
@@ -31,46 +31,133 @@ type ChatMessage = {
 
 export default function Home() {
   const [topic, setTopic] = useState<string>("");
-  const [passage, setPassage] = useState<string>("");
   const [userSummary, setUserSummary] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "model",
       content:
-        "Welcome to ReMinder! I am Pixel the Parrot, upload a PDF to begin.",
+        "Welcome to ReMinder! I am Pixel the Parrot, upload a .txt file to begin or enter a topic.",
     },
   ]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [isPassageVisible, setIsPassageVisible] = useState<boolean>(false);
-  const [isReady, setIsReady] = useState<boolean>(false);
   const [instructionsModal, setInstructions] = useState<boolean>(true);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string>("");
 
-  const handlePdfChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      const pdf = event.target.files[0];
-      if (pdf.type === "application/pdf") {
-        setPdfFile(pdf);
-        setMessages([
-          ...messages,
-          { role: "user", content: "Uploaded PDF" },
-          { role: "model", content: "PDF Received!" },
-        ]);
+  // Text to Speech States and Functions
+  const [speed, setSpeed] = useState<number>(1);
+  const [volume, setVolume] = useState<number>(1);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [lastSpokenText, setLastSpokenText] = useState<string>("");
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+
+  const yap = (text: string) => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = speed;
+      utterance.volume = volume;
+      utteranceRef.current = utterance;
+
+      utterance.onstart = () => {
+        setIsPlaying(true);
+      };
+      utterance.onend = () => {
+        setIsPlaying(false);
+      };
+
+      speechSynthesis.speak(utterance);
+      setLastSpokenText(text);
+    } else {
+      console.error("Speech synthesis not supported!!");
+    }
+  };
+
+  const repeat = () => {
+    if (lastSpokenText) {
+      yap(lastSpokenText);
+    }
+  };
+
+  const stop = () => {
+    speechSynthesis.cancel();
+    setIsPlaying(false);
+  };
+
+  const shouldSpeak = useRef(false);
+  const hasInitialMessageSpoken = useRef(false);
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === "model") {
+      if (shouldSpeak.current) {
+        yap(lastMessage.content);
+      } else if (
+        !hasInitialMessageSpoken.current &&
+        lastMessage.content !==
+          "Welcome to ReMinder! I am Pixel the Parrot, upload a .txt file to begin or enter a topic."
+      ) {
+        yap(lastMessage.content);
+        hasInitialMessageSpoken.current = true;
+      }
+    }
+    shouldSpeak.current = true;
+  }, [messages]);
+
+  // Function to handle file upload using FileReader
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+
+      if (file.type === "text/plain") {
+        setLoading(true);
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+          try {
+            const content = e.target?.result as string;
+            setFileContent(content);
+
+            // Use Gemini to summarize the text content
+            const result = await model.generateContent([
+              "Summarize this document:\n\n" + content,
+            ]);
+
+            const newSummary = result.response.text();
+            setMessages([
+              ...messages,
+              { role: "user", content: "Uploaded text file" },
+              {
+                role: "model",
+                content: `File received! Here is the summary:\n\n ${newSummary}\n\n Summarize and then answer.`,
+              },
+            ]);
+          } catch (error) {
+            console.error("Error processing file:", error);
+            setMessages([
+              ...messages,
+              { role: "user", content: "Uploaded file" },
+              {
+                role: "model",
+                content: "Sorry, there was an error processing your file.",
+              },
+            ]);
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        reader.onerror = () => {
+          setLoading(false);
+          alert("Error reading file");
+        };
+
+        reader.readAsText(file);
       } else {
-        alert("Only accept PDF type file.");
+        alert("Please upload a text file (.txt)");
       }
     }
   };
 
-  const handleReady = () => {
-    setIsReady(true);
-    setIsPassageVisible(false);
-    const readyMessage = {
-      role: "model",
-      content: `Try your best to write a summary of the covered topics.`,
-    };
-    setMessages((prevMessages) => [...prevMessages, readyMessage]);
-  };
   const handleTopicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic) {
@@ -86,7 +173,6 @@ export default function Home() {
       );
       const newPassage = result.response.text();
 
-      setPassage(newPassage);
       setMessages([
         ...messages,
         { role: "user", content: `${topic}` },
@@ -95,8 +181,6 @@ export default function Home() {
           content: `Here is the passage about ${topic}:\n\n ${newPassage}\n\n Read and then, summarize.`,
         },
       ]);
-
-      setIsPassageVisible(true);
     } catch (error) {
       console.error("Error generating passage:", error);
       setMessages([
@@ -119,35 +203,38 @@ export default function Home() {
     }
     setLoading(true);
 
-    setUserSummary("");
     try {
       const userSummaryMessage = { role: "user", content: userSummary };
+      setMessages((prevMessages) => [...prevMessages, userSummaryMessage]);
+      const newMessages = messages.slice(messages.length - 1)[0].content;
       const summaryResult = await chat.sendMessage(userSummary); // Send user summary to update chat history
-      const summaryResponse = summaryResult.response.text();
+
+      const result = await chat.sendMessage(
+        `Original Passage:\n${newMessages}\n\nUser Summary:\n${userSummary}\n\nAnalyze the user's summary. Identify key information
+         that is missing or inaccurate compared to the original passage. Then, formulate a question that is designed to trigger
+         the user to recall the missing information. Make the conversation smooth. If the user states that they cannot remember, 
+         provide them with the answer. The interaction should end when the user repeats most of the information in \n${newMessages}\n`
+      );
+
+      const response = result.response.text();
 
       setMessages((prevMessages) => [
         ...prevMessages,
-        userSummaryMessage,
-        { role: "model", content: summaryResponse },
+        { role: "model", content: response },
       ]);
 
-      const result = await chat.sendMessage(
-        `Original Passage:\n${passage}\n\nUser Summary:\n${userSummary}\n\nAnalyze the user's summary. Identify key information
-         that is missing or inaccurate compared to the original passage. Then, formulate a question that is designed to trigger
-         the user to recall the missing information. Make the conversation smooth. If the user states that they cannot remember, 
-         provide them with the answer. The interaction should end when the user repeats most of the information in \n${passage}\n`
-      );
-      const response = result.response.text();
+      setUserSummary("");
     } catch (error) {
       console.error("Error generating feedback:", error);
-      setMessages([
-        ...messages,
+      setMessages((prevMessages) => [
+        ...prevMessages,
         { role: "user", content: userSummary },
         {
           role: "model",
           content: "Sorry, there was an error processing your summary.",
         },
       ]);
+      setUserSummary("");
     } finally {
       setLoading(false);
     }
@@ -187,12 +274,13 @@ export default function Home() {
             </p>
             <ol className="list-decimal pl-6 mb-4">
               <li>
-                <b>Choose a PDF: </b> Upload a PDF of the notes or passage that
-                you want to learn from.
+                <b>Choose a topic or upload text: </b> Either enter a topic to
+                learn about or upload a text file with content you want to
+                learn.
               </li>
               <li>
-                <b>Summarize:</b> ReMinder will then analyze the provided notes
-                or passage and reiterrate a summarized version
+                <b>Summarize:</b> ReMinder will analyze the content and create a
+                summarized version.
               </li>
               <li>
                 <b>Review and Recall:</b> You then can repeat key parts, where
@@ -234,9 +322,46 @@ export default function Home() {
           </div>
         ))}
       </div>
+      <div className="flex items-center space-x-4 mb-4">
+        <div className="flex items-center">
+          <label htmlFor="rate" className="mr-2">
+            Speed:
+          </label>
+          <input
+            type="range"
+            id="rate"
+            min="0.5"
+            max="2"
+            step="0.1"
+            value={speed}
+            onChange={(e) => setSpeed(Number(e.target.value))}
+          />
+        </div>
 
-      {/* Topic Input */}
-      {!isPassageVisible && !isReady && (
+        <div className="flex items-center">
+          <label htmlFor="volume" className="mr-2">
+            Volume:
+          </label>
+          <input
+            type="range"
+            id="volume"
+            min="0"
+            max="1"
+            step="0.1"
+            value={volume}
+            onChange={(e) => setVolume(Number(e.target.value))}
+          />
+        </div>
+        <button onClick={repeat} className="bg-blue-500 text-white rounded p-2">
+          Repeat
+        </button>
+        <button onClick={stop} className="bg-red-500 text-white rounded p-2">
+          Stop
+        </button>
+      </div>
+
+      {/* Topic Input and File Upload */}
+      {messages.length == 1 && (
         <div>
           <form onSubmit={handleTopicSubmit} className="mb-4">
             <div className="flex">
@@ -256,30 +381,20 @@ export default function Home() {
             </div>
           </form>
 
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={handlePdfChange}
-            className="mb-4"
-          />
-        </div>
-      )}
-      {/* topic passage */}
-      {isPassageVisible && (
-        <div className="border rounded p-4 mb-4">
-          <h2 className="text-lg font-semibold mb-2">Passage</h2>
-          <p>{passage}</p>
-          <button
-            className="bg-blue-800 text-white rounded p-2 mt-4"
-            onClick={handleReady}
-          >
-            READY
-          </button>
+          <div className="flex flex-col mb-4">
+            <p className="mb-2">Upload a text file (.txt):</p>
+            <input
+              type="file"
+              accept=".txt"
+              onChange={handleFileUpload}
+              className="mb-2"
+            />
+          </div>
         </div>
       )}
 
       {/* Summary Input */}
-      {!isPassageVisible && isReady && (
+      {messages.length > 1 && (
         <form onSubmit={handleSummarySubmit} className="mb-4">
           <textarea
             className="border rounded p-2 w-full mb-2"
