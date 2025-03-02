@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import React, { useState, useEffect } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Send, X } from "lucide-react";
+import pixel from "@/app/pixel.png";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_API_KEY || "");
 const model = genAI.getGenerativeModel({
@@ -153,7 +155,12 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-white container mx-auto p-4">
+    <div className=" bg-white container mx-auto p-4">
+      <div className=" flex justify-center">
+        <Link href="/">
+          <Image src={pixel} alt="pixel the parrot" className="w-48 h-34" />
+        </Link>
+      </div>
       <Link href="/">
         <div className="text-center text-2xl font-bold mb-4 cursor-pointer">
           ReMinder

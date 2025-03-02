@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import React, { useState, useEffect, ChangeEvent, useRef } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Send, X } from "lucide-react";
+import pixel from "@/app/pixel.png";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_API_KEY || "");
 const model = genAI.getGenerativeModel({
@@ -249,7 +251,12 @@ export default function Home() {
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 bg-white">
+      <div className=" flex justify-center">
+        <Link href="/">
+          <Image src={pixel} alt="pixel the parrot" className="w-48 h-34" />
+        </Link>
+      </div>
       <Link href="/">
         <div className="text-center text-2xl font-bold mb-4 cursor-pointer">
           ReMinder
@@ -311,20 +318,27 @@ export default function Home() {
               msg.role === "user" ? "text-right" : "text-left"
             }`}
           >
-            <span
-              className={`inline-block p-2 rounded-lg ${
-                msg.role === "user" ? "bg-green-300" : "bg-gray-200"
-              }`}
-            >
-              {msg.content}
-            </span>
+            <div className="flex">
+              <Image
+                src={pixel}
+                alt="pixel the parrot"
+                className={`w-24 h-18 ${msg.role === "user" ? "hidden" : ""}`}
+              />
+              <span
+                className={`inline-block p-2 rounded-lg ${
+                  msg.role === "user" ? "bg-green-300" : "bg-gray-200"
+                }`}
+              >
+                {msg.content}
+              </span>
+            </div>
           </div>
         ))}
       </div>
       <div className="flex items-center space-x-4 mb-4">
         <div className="flex items-center">
           <label htmlFor="rate" className="mr-2">
-            Speed:
+            Speed: 0.5x
           </label>
           <input
             type="range"
@@ -335,6 +349,9 @@ export default function Home() {
             value={speed}
             onChange={(e) => setSpeed(Number(e.target.value))}
           />
+          <label htmlFor="rate" className="m-2">
+            2.0x
+          </label>
         </div>
 
         <div className="flex items-center">
@@ -351,7 +368,10 @@ export default function Home() {
             onChange={(e) => setVolume(Number(e.target.value))}
           />
         </div>
-        <button onClick={repeat} className="bg-blue-500 text-white rounded p-2">
+        <button
+          onClick={repeat}
+          className="bg-green-500 text-white rounded p-2"
+        >
           Repeat
         </button>
         <button onClick={stop} className="bg-red-500 text-white rounded p-2">
