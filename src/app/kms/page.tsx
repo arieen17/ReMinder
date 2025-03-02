@@ -23,18 +23,6 @@ const chat = model.startChat({
   generationConfig,
 });
 
-// async function run() {
-//   const chatSession = model.startChat({
-//     generationConfig,
-//     history: [],
-//   });
-
-//   const result = await chatSession.sendMessage("INSERT_INPUT_HERE");
-//   console.log(result.response.text());
-// }
-
-// run();
-
 type ChatMessage = {
   role: "user" | "model";
   content: string;
@@ -55,11 +43,6 @@ export default function Home() {
   const [isPassageVisible, setIsPassageVisible] = useState<boolean>(false);
 
   const handleTopicSubmit = async (e: React.FormEvent) => {
-    const chat = model.startChat({
-      history: [],
-      generationConfig,
-    });
-
     e.preventDefault();
     if (!topic) {
       return;
@@ -69,10 +52,11 @@ export default function Home() {
     setMessages([...messages, { role: "user", content: `${topic}` }]);
 
     try {
-      const result = await model.generateContent(
+      const result = await chat.sendMessage(
         `Generate a short passage about ${topic}.`
       );
       const newPassage = result.response.text();
+
       setPassage(newPassage);
       setMessages([
         ...messages,
@@ -82,6 +66,7 @@ export default function Home() {
           content: `Here is the passage about ${topic}:\n\n ${newPassage}\n\n Read and then, summarize.`,
         },
       ]);
+
       setIsPassageVisible(true);
     } catch (error) {
       console.error("Error generating passage:", error);
@@ -104,21 +89,30 @@ export default function Home() {
       return;
     }
     setLoading(true);
-    setMessages([...messages, { role: "user", content: userSummary }]);
+    // setMessages([...messages, { role: "user", content: userSummary }]);
+    // const result = await chat.sendMessage(userSummary);
+    // const response = result.response.text();
+
     setUserSummary("");
     try {
-      const result = await model.generateContent(
+      const userSummaryMessage = { role: "user", content: userSummary };
+      const summaryResult = await chat.sendMessage(userSummary); // Send user summary to update chat history
+      const summaryResponse = summaryResult.response.text();
+
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        userSummaryMessage,
+        { role: "model", content: summaryResponse },
+      ]);
+
+      const result = await chat.sendMessage(
         `Original Passage:\n${passage}\n\nUser Summary:\n${userSummary}\n\nAnalyze the user's summary. Identify key information
          that is missing or inaccurate compared to the original passage. Then, formulate a question that is designed to trigger
          the user to recall the missing information. Make the conversation smooth. If the user states that they cannot remember, 
-         provide them with the answer. If the user repeats most of the passage correctly, praise the user.`
+         provide them with the answer. The interaction should end when the user repeats most of the information in \n${passage}\n`
       );
+      //   const storeHistory = await chat.sendMessage(result.response.text());
       const response = result.response.text();
-      setMessages([
-        ...messages,
-        { role: "user", content: userSummary },
-        { role: "model", content: response },
-      ]);
     } catch (error) {
       console.error("Error generating feedback:", error);
       setMessages([
