@@ -44,6 +44,12 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(false);
   const [instructionsModal, setInstructions] = useState<boolean>(true);
   const [fileContent, setFileContent] = useState<string>("");
+  const [passage, setPassage] = useState<string>("");
+  const [isPassageVisible, setIsPassageVisible] = useState<boolean>(false);
+  const [isReady, setIsReady] = useState<boolean>(false);
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+  const [userAnswers, setUserAnswers] = useState<string[]>([]);
 
   const [speed, setSpeed] = useState<number>(1);
   const [volume, setVolume] = useState<number>(1);
@@ -102,6 +108,38 @@ export default function Home() {
     shouldSpeak.current = true;
   }, [messages]);
 
+  const handleReady = async () => {
+    setIsReady(true);
+    setIsPassageVisible(false);
+
+    try {
+      const result = await chat.sendMessage(
+        `Generate 3 questions based on the following passage:\n\n${passage}`
+      );
+      const questionList = result.response.text();
+      const questionsArray = questionList
+        .split("\n")
+        .filter((line) => line.trim().length > 0);
+      setQuestions(questionsArray);
+
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          role: "model",
+          content: `Okay, here is your first question:\n\n${questionsArray[0]}`,
+        },
+      ]);
+    } catch (error) {
+      console.error("Error generating questions:", error);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          role: "model",
+          content: "Sorry, I couldn't generate the questions.",
+        },
+      ]);
+    }
+  };
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
@@ -115,20 +153,22 @@ export default function Home() {
             const content = e.target?.result as string;
             setFileContent(content);
 
-            const result = await model.generateContent([
-              "Summarize this document with important key details:\n\n" +
-                content,
+            const passageResult = await model.generateContent([
+              "Generate a passage from the given document: do not ask any questions, only a summary with 3 sentences (80-90 words)\n\n",
+              { text: content },
             ]);
 
-            const newSummary = result.response.text();
+            const newPassage = passageResult.response.text();
+            setPassage(newPassage);
             setMessages([
               ...messages,
               { role: "user", content: "Uploaded text file" },
               {
                 role: "model",
-                content: `File received! Here is the summary:\n\n ${newSummary}\n\n.`,
+                content: `File received! Here is a passage based off your file`,
               },
             ]);
+            setIsPassageVisible(true);
           } catch (error) {
             console.error("Error processing file:", error);
             setMessages([
@@ -203,25 +243,39 @@ export default function Home() {
 
     try {
       const userSummaryMessage = { role: "user", content: userSummary };
-      setMessages((prevMessages) => [...prevMessages, userSummaryMessage]);
-      const newMessages = messages.slice(messages.length - 1)[0].content;
-      const summaryResult = await chat.sendMessage(userSummary); // Send user summary to update chat history
-
-      const result = await chat.sendMessage(
-        `Original Passage:\n${newMessages}\n\nUser Summary:\n${userSummary}\n\nAnalyze the user's summary. Identify key information
-         that is missing or inaccurate compared to the original passage. Then, formulate a question that is designed to trigger
-         the user to recall the missing information. Make the conversation smooth. If the user states that they cannot remember, 
-         provide them with the answer. The interaction should end when the user repeats most of the information in \n${newMessages}\n`
-      );
-
-      const response = result.response.text();
-
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { role: "model", content: response },
-      ]);
-
+      setUserAnswers([...userAnswers, userSummary]);
       setUserSummary("");
+
+      const result = await chat.sendMessage(userSummary);
+      setMessages((prevMessages) => [...prevMessages, userSummaryMessage]);
+
+      if (currentQuestionIndex < questions.length - 1) {
+        const nextQuestionIndex = currentQuestionIndex + 1;
+        setCurrentQuestionIndex(nextQuestionIndex);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          {
+            role: "model",
+            content: `Here is your next question:\n\n${questions[nextQuestionIndex]}`,
+          },
+        ]);
+      } else {
+        const evaluationResult = await chat.sendMessage(
+          `Evaluate the user's answers to the following questions based on the provided passage:\n\n
+              Passage: ${passage}\n\n
+              Questions:\n${questions.join("\n")}\n\n
+              User Answers:\n${userAnswers.join("\n")}\n\n
+              Provide feedback on the correctness of each answer and suggest improvements. Provide in a paragraph`
+        );
+
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          {
+            role: "model",
+            content: `You have answered all the questions!\n\nHere is a general evaluation of your answers:\n\n${evaluationResult.response.text()}`,
+          },
+        ]);
+      }
     } catch (error) {
       console.error("Error generating feedback:", error);
       setMessages((prevMessages) => [
@@ -285,14 +339,12 @@ export default function Home() {
                 learn.
               </li>
               <li>
-                <b>Audio Summary:</b> ReMinder will analyze the content and
-                create a summarized version which will then be spoken out loud
-                to you.
+                <b>Audio Passage:</b> ReMinder will analyze the content and
+                create a passage from it.
               </li>
               <li>
-                <b>Review and Recall:</b> You then can repeat key parts, where
-                ReMinder will continue to verbally quiz you to test how much you
-                remember!
+                <b>Review and Recall:</b> You will click ready, where ReMinder
+                will verbally quiz you to test how much you remember!
               </li>
             </ol>
             <p className="text-pretty text-center">
@@ -386,7 +438,7 @@ export default function Home() {
       </div>
 
       {/* Topic Input and File Upload */}
-      {messages.length == 1 && (
+      {!isPassageVisible && !isReady && messages.length == 1 && (
         <div>
           <form onSubmit={handleTopicSubmit} className="mb-4">
             <div className="flex">
@@ -417,27 +469,56 @@ export default function Home() {
           </div>
         </div>
       )}
+      {isPassageVisible && (
+        <div className="border rounded p-4 mb-4">
+          <h2 className="text-lg font-semibold mb-2">Passage</h2>
+          <p>{passage}</p>
+          <button
+            className="bg-blue-800 text-white rounded p-2 mt-4"
+            onClick={handleReady}
+          >
+            READY
+          </button>
+          {isPassageVisible &&
+            typeof window !== "undefined" &&
+            "speechSynthesis" in window && (
+              <div className="mt-4">
+                <button
+                  onClick={() => yap(passage)}
+                  className="bg-blue-500 text-white rounded p-2"
+                >
+                  Read Passage Aloud
+                </button>
+              </div>
+            )}
+        </div>
+      )}
 
       {/* Summary Input */}
-      {messages.length > 1 && (
-        <form onSubmit={handleSummarySubmit} className="mb-4">
-          <textarea
-            className="border rounded p-2 w-full mb-2"
-            placeholder="Write your response here..."
-            value={userSummary}
-            onChange={(e) => setUserSummary(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSummarySubmit(e);
-              }
-            }}
-          />
-          <button type="submit" className="bg-blue-500 text-white rounded p-2">
-            Submit Response
-          </button>
-        </form>
-      )}
+      {!isPassageVisible &&
+        isReady &&
+        currentQuestionIndex < questions.length && (
+          <form onSubmit={handleSummarySubmit} className="mb-4">
+            <textarea
+              className="border rounded p-2 w-full mb-2"
+              placeholder="Write your response here..."
+              value={userSummary}
+              onChange={(e) => setUserSummary(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSummarySubmit(e);
+                }
+              }}
+            />
+            <button
+              type="submit"
+              className="bg-blue-500 text-white rounded p-2"
+            >
+              Submit Response
+            </button>
+          </form>
+        )}
       {loading && <p>Loading...</p>}
     </div>
   );

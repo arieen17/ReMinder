@@ -77,7 +77,7 @@ export default function Home() {
         { role: "user", content: `${topic}` },
         {
           role: "model",
-          content: `Here is the passage about ${topic}:\n\n ${newPassage}\n\n Read and then, summarize.`,
+          content: `Here is the passage about ${topic}:`,
         },
       ]);
 
@@ -183,7 +183,7 @@ export default function Home() {
               ReMinder is a tool designed to help you recall information
               effectively. Here's how it works:
             </p>
-            <ol className="list-decimal pl-6 mb-4">
+            <ol className="text-pretty list-decimal pl-6 mb-4">
               <li>
                 <b>Choose a Topic:</b> Enter any topic you need to be tested on
                 in the input box.
