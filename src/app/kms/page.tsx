@@ -1,5 +1,5 @@
-"use client"; // This is a client component
-
+"use client";
+import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Send, X } from "lucide-react";
@@ -154,7 +154,11 @@ export default function Home() {
 
   return (
     <div className="bg-white container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">ReMinder Chat</h1>
+      <Link href="/">
+        <div className="text-center text-2xl font-bold mb-4 cursor-pointer">
+          ReMinder
+        </div>
+      </Link>
       {/* instructions */}
       {instructionsModal && (
         <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50">

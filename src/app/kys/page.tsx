@@ -1,5 +1,5 @@
 "use client";
-
+import Link from "next/link";
 import React, { useState, useEffect, ChangeEvent, useRef } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Send, X } from "lucide-react";
@@ -36,14 +36,13 @@ export default function Home() {
     {
       role: "model",
       content:
-        "Welcome to ReMinder! I am Pixel the Parrot, upload a .txt file to begin or enter a topic.",
+        "Welcome to ReMinder! I am Pixel the Parrot, upload a .txt file to begin.",
     },
   ]);
   const [loading, setLoading] = useState<boolean>(false);
   const [instructionsModal, setInstructions] = useState<boolean>(true);
   const [fileContent, setFileContent] = useState<string>("");
 
-  // Text to Speech States and Functions
   const [speed, setSpeed] = useState<number>(1);
   const [volume, setVolume] = useState<number>(1);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -89,21 +88,18 @@ export default function Home() {
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
     if (lastMessage && lastMessage.role === "model") {
-      if (shouldSpeak.current) {
-        yap(lastMessage.content);
-      } else if (
-        !hasInitialMessageSpoken.current &&
+      if (
+        shouldSpeak.current &&
         lastMessage.content !==
-          "Welcome to ReMinder! I am Pixel the Parrot, upload a .txt file to begin or enter a topic."
+          "Welcome to ReMinder! I am Pixel the Parrot, upload a .txt file to begin."
       ) {
         yap(lastMessage.content);
-        hasInitialMessageSpoken.current = true;
       }
     }
+
     shouldSpeak.current = true;
   }, [messages]);
 
-  // Function to handle file upload using FileReader
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
@@ -117,9 +113,9 @@ export default function Home() {
             const content = e.target?.result as string;
             setFileContent(content);
 
-            // Use Gemini to summarize the text content
             const result = await model.generateContent([
-              "Summarize this document:\n\n" + content,
+              "Summarize this document with important key details:\n\n" +
+                content,
             ]);
 
             const newSummary = result.response.text();
@@ -128,7 +124,7 @@ export default function Home() {
               { role: "user", content: "Uploaded text file" },
               {
                 role: "model",
-                content: `File received! Here is the summary:\n\n ${newSummary}\n\n Summarize and then answer.`,
+                content: `File received! Here is the summary:\n\n ${newSummary}\n\n.`,
               },
             ]);
           } catch (error) {
@@ -254,7 +250,11 @@ export default function Home() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">ReMinder Chat</h1>
+      <Link href="/">
+        <div className="text-center text-2xl font-bold mb-4 cursor-pointer">
+          ReMinder
+        </div>
+      </Link>
       {/* instructions */}
       {instructionsModal && (
         <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -272,10 +272,9 @@ export default function Home() {
               ReMinder is a tool designed to help you recall information
               effectively. Here's how it works:
             </p>
-            <ol className="list-decimal pl-6 mb-4">
+            <ol className="text-pretty list-decimal pl-6 mb-4">
               <li>
-                <b>Choose a topic or upload text: </b> Either enter a topic to
-                learn about or upload a text file with content you want to
+                <b>Upload text: </b> Upload a text file with content you want to
                 learn.
               </li>
               <li>
