@@ -6,7 +6,7 @@ import pixel from "@/app/pixel.png";
 
 export default function Main() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-white">
       <Image src={pixel} alt="pixel the parrot" className="w-64 h-62" />
       <h1 className="text-4xl font-bold mb-8">Welcome to ReMinder</h1>
       <p className="text-xl mb-5">
