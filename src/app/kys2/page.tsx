@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, ChangeEvent } from "react";
+import React, { useState, useEffect, ChangeEvent, useRef } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Send, X } from "lucide-react";
 
@@ -45,6 +45,65 @@ export default function Home() {
   const [isReady, setIsReady] = useState<boolean>(false);
   const [instructionsModal, setInstructions] = useState<boolean>(true);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+
+  const [speed, setSpeed] = useState<number>(1);
+  const [volume, setVolume] = useState<number>(1);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [lastSpokenText, setLastSpokenText] = useState<string>("");
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+
+  const yap = (text: string) => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = speed;
+      utterance.volume = volume;
+      utteranceRef.current = utterance;
+
+      utterance.onstart = () => {
+        setIsPlaying(true);
+      };
+      utterance.onend = () => {
+        setIsPlaying(false);
+      };
+
+      speechSynthesis.speak(utterance);
+      setLastSpokenText(text);
+    } else {
+      console.error("Speech synthesis not supported!!");
+    }
+  };
+
+  const repeat = () => {
+    if (lastSpokenText) {
+      yap(lastSpokenText);
+    }
+  };
+
+  const stop = () => {
+    speechSynthesis.cancel();
+    setIsPlaying(false);
+  };
+
+  const shouldSpeak = useRef(false);
+  const hasInitialMessageSpoken = useRef(false);
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === "model") {
+      if (shouldSpeak.current) {
+        yap(lastMessage.content);
+      } else if (
+        !hasInitialMessageSpoken.current &&
+        lastMessage.content !==
+          "Welcome to ReMinder! I am Pixel the Parrot, upload a PDF to begin!"
+      ) {
+        yap(lastMessage.content);
+        hasInitialMessageSpoken.current = true;
+      }
+    }
+    shouldSpeak.current = true;
+  }, [messages]);
 
   const handlePdfChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -233,6 +292,44 @@ export default function Home() {
             </span>
           </div>
         ))}
+      </div>
+
+      <div className="flex items-center space-x-4 mb-4">
+        <div className="flex items-center">
+          <label htmlFor="rate" className="mr-2">
+            Speed:
+          </label>
+          <input
+            type="range"
+            id="rate"
+            min="0.5"
+            max="2"
+            step="0.1"
+            value={speed}
+            onChange={(e) => setSpeed(Number(e.target.value))}
+          />
+        </div>
+
+        <div className="flex items-center">
+          <label htmlFor="volume" className="mr-2">
+            Volume:
+          </label>
+          <input
+            type="range"
+            id="volume"
+            min="0"
+            max="1"
+            step="0.1"
+            value={volume}
+            onChange={(e) => setVolume(Number(e.target.value))}
+          />
+        </div>
+        <button onClick={repeat} className="bg-blue-500 text-white rounded p-2">
+          Repeat
+        </button>
+        <button onClick={stop} className="bg-red-500 text-white rounded p-2">
+          Stop
+        </button>
       </div>
 
       {/* Topic Input */}
