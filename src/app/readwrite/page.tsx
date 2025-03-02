@@ -189,10 +189,6 @@ export default function Home() {
                 in the input box.
               </li>
               <li>
-                <b>Confirm:</b> ReMinder will confirm with you that you want to
-                learn about that specific topic.
-              </li>
-              <li>
                 <b>Read the Passage:</b> There wil be a generated short passage
                 about the chosen topic. You will need to read it carefully.
               </li>
