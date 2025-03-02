@@ -231,13 +231,24 @@ export default function Home() {
               msg.role === "user" ? "text-right" : "text-left"
             }`}
           >
-            <span
-              className={`inline-block p-2 rounded-lg ${
-                msg.role === "user" ? "bg-green-300" : "bg-gray-200"
+            <div
+              className={`flex items-center ${
+                msg.role === "user" ? "justify-end" : ""
               }`}
             >
-              {msg.content}
-            </span>
+              <Image
+                src={pixel}
+                alt="pixel the parrot"
+                className={`w-24 h-18 ${msg.role === "user" ? "hidden" : ""}`}
+              />
+              <span
+                className={`inline-block p-2 rounded-lg ${
+                  msg.role === "user" ? "bg-green-300" : "bg-gray-200"
+                }`}
+              >
+                {msg.content}
+              </span>
+            </div>
           </div>
         ))}
       </div>
