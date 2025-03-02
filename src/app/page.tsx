@@ -1,8 +1,8 @@
-"use client";
-import { Send } from "lucide-react";
+"use client"; // This is a client component
 
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Send, X } from "lucide-react";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_API_KEY || "");
 const model = genAI.getGenerativeModel({
@@ -24,18 +24,6 @@ const chat = model.startChat({
   generationConfig,
 });
 
-// async function run() {
-//   const chatSession = model.startChat({
-//     generationConfig,
-//     history: [],
-//   });
-
-//   const result = await chatSession.sendMessage("INSERT_INPUT_HERE");
-//   console.log(result.response.text());
-// }
-
-// run();
-
 type ChatMessage = {
   role: "user" | "model";
   content: string;
@@ -43,7 +31,6 @@ type ChatMessage = {
 
 export default function Home() {
   const [topic, setTopic] = useState<string>("");
-  const [confirmedTopic, setConfirmedTopic] = useState<string>("");
   const [passage, setPassage] = useState<string>("");
   const [userSummary, setUserSummary] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -56,33 +43,69 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(false);
   const [isPassageVisible, setIsPassageVisible] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
-  const [isTopicConfirmed, setIsTopicConfirmed] = useState<boolean>(false);
-  const [userConfirmed, setUserConfirmed] = useState<boolean>(false);
+  // const [isTopicConfirmed, setIsTopicConfirmed] = useState<boolean>(false);
+  const [instructionsModal, setInstructions] = useState<boolean>(true);
+
+  // const handleTopicConfirm = async (confirm: boolean) => {
+  //   setLoading(true);
+  //   if (confirm) {
+  //     setIsTopicConfirmed(true);
+  //     const confirmMessage = { role: "user", content: "Confirmed Topic!" };
+  //     setMessages((prevMessages) => [...prevMessages, confirmMessage]);
+
+  //     try {
+  //       const result = await chat.sendMessage(
+  //         `Generate a short passage about ${topic}.`
+  //       );
+  //       const newPassage = result.response.text();
+  //       setPassage(newPassage);
+  //       const modelMessage = {
+  //         role: "model",
+  //         content: `Here is the passage about your topic:\n\n Read the passage and when prepared, select READY.`,
+  //       };
+  //       setMessages((prevMessages) => [...prevMessages, modelMessage]);
+
+  //       setIsPassageVisible(true);
+  //     } catch (error) {
+  //       console.error("Error generating passage:", error);
+  //       setMessages((prevMessages) => [
+  //         ...prevMessages,
+  //         {
+  //           role: "model",
+  //           content: "Sorry, there was an error generating the passage.",
+  //         },
+  //       ]);
+  //     }
+  //   }
+  //   setLoading(false);
+  // };
 
   const handleTopicSubmit = async (e: React.FormEvent) => {
-    const chat = model.startChat({
-      history: [],
-      generationConfig,
-    });
-
     e.preventDefault();
     if (!topic) {
       return;
     }
+
     setLoading(true);
     setMessages([...messages, { role: "user", content: `${topic}` }]);
 
     try {
-      const result = await model.generateContent(
-        `ask if they want to confirm ${topic} or want to dive into more specific topics`
+      const result = await chat.sendMessage(
+        `Generate a short passage about ${topic}.`
       );
-      const response = result.response.text();
+      const newPassage = result.response.text();
+
+      setPassage(newPassage);
       setMessages([
         ...messages,
         { role: "user", content: `${topic}` },
-        { role: "model", content: `${response}` },
+        {
+          role: "model",
+          content: `Here is the passage about ${topic}:\n\n ${newPassage}\n\n Read and then, summarize.`,
+        },
       ]);
-      setUserConfirmed(true);
+
+      setIsPassageVisible(true);
     } catch (error) {
       console.error("Error generating passage:", error);
       setMessages([
@@ -97,76 +120,47 @@ export default function Home() {
       setLoading(false);
     }
   };
-  const handleTopicConfirm = async (confirm: boolean) => {
-    setLoading(true);
-    if (confirm) {
-      setConfirmedTopic(topic);
-      setIsTopicConfirmed(true);
-      setMessages([...messages, { role: "user", content: `Confirmed Topic!` }]);
-
-      try {
-        const result = await model.generateContent(
-          `Generate a short passage about ${topic}.`
-        );
-        const newPassage = result.response.text();
-        setPassage(newPassage);
-        setMessages([
-          ...messages,
-          { role: "user", content: `Confirmed Topic!` },
-          {
-            role: "model",
-            content: `Here is the passage about your topic:\n\n Read the passage and when prepared, select READY.`,
-          },
-        ]);
-        setIsPassageVisible(true);
-      } catch (error) {
-        console.error("Error generating passage:", error);
-        setMessages([
-          ...messages,
-          { role: "user", content: `${confirmedTopic}` },
-          {
-            role: "model",
-            content: "Sorry, there was an error generating the passage.",
-          },
-        ]);
-      }
-    }
-
-    setLoading(false);
-  };
 
   const handleReady = () => {
     setIsReady(true);
     setIsPassageVisible(false);
-    setMessages([
-      ...messages,
-      {
-        role: "model",
-        content: `Try your best to write a summary of the covered topics.`,
-      },
-    ]);
+    const readyMessage = {
+      role: "model",
+      content: `Try your best to write a summary of the covered topics.`,
+    };
+    setMessages((prevMessages) => [...prevMessages, readyMessage]);
   };
-  const handleSummarySubmit = async (e: FormEvent) => {
+
+  const handleSummarySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userSummary) {
       return;
     }
     setLoading(true);
-    setMessages([...messages, { role: "user", content: userSummary }]);
+    // setMessages([...messages, { role: "user", content: userSummary }]);
+    // const result = await chat.sendMessage(userSummary);
+    // const response = result.response.text();
+
     setUserSummary("");
     try {
-      const result = await model.generateContent(
+      const userSummaryMessage = { role: "user", content: userSummary };
+      const summaryResult = await chat.sendMessage(userSummary); // Send user summary to update chat history
+      const summaryResponse = summaryResult.response.text();
+
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        userSummaryMessage,
+        { role: "model", content: summaryResponse },
+      ]);
+
+      const result = await chat.sendMessage(
         `Original Passage:\n${passage}\n\nUser Summary:\n${userSummary}\n\nAnalyze the user's summary. Identify key information
          that is missing or inaccurate compared to the original passage. Then, formulate a question that is designed to trigger
          the user to recall the missing information. Make the conversation smooth. If the user states that they cannot remember, 
-         provide them with the answer. If the user repeats most of the passage correctly, praise the user.`
+         provide them with the answer. The interaction should end when the user repeats most of the information in \n${passage}\n`
       );
+      //   const storeHistory = await chat.sendMessage(result.response.text());
       const response = result.response.text();
-      setMessages([
-        ...messages,
-        { role: "user", content: userSummary },
-        { role: "model", content: response },
-      ]);
     } catch (error) {
       console.error("Error generating feedback:", error);
       setMessages([
@@ -183,20 +177,81 @@ export default function Home() {
   };
 
   useEffect(() => {
+    // Scroll to the bottom of the chat on new messages
     const chatContainer = document.getElementById("chat-container");
     if (chatContainer) {
       chatContainer.scrollTop = chatContainer.scrollHeight;
     }
   }, [messages]);
 
+  const handleCloseModal = () => {
+    setInstructions(false);
+  };
+
   return (
-    <div className=" bg-white mx-auto p-4 h-screen w-8/12">
+    <div className=" bg-white container mx-auto p-4">
       <div className="text-2xl font-bold mb-4 justify-center flex">
         ReMinder
       </div>
+
+      {/* instructions */}
+      {instructionsModal && (
+        <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-8 rounded-lg shadow-lg relative max-w-lg w-full mx-4">
+            <button
+              onClick={handleCloseModal}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            >
+              <X />
+            </button>
+            <h2 className="text-center text-2xl font-bold mb-4">
+              Welcome to ReMinder!
+            </h2>
+            <p className="mb-4">
+              ReMinder is a tool designed to help you recall information
+              effectively. Here's how it works:
+            </p>
+            <ol className="list-decimal pl-6 mb-4">
+              <li>
+                <b>Choose a Topic:</b> Enter any topic you need to be tested on
+                in the input box.
+              </li>
+              <li>
+                <b>Confirm:</b> ReMinder will confirm with you that you want to
+                learn about that specific topic.
+              </li>
+              <li>
+                <b>Read the Passage:</b> There wil be a generated short passage
+                about the chosen topic. You will need to read it carefully.
+              </li>
+              <li>
+                <b>Summarize:</b> Once you feel ready, click the "READY" button.
+                Then, try to write a summary of what you read in your own words.
+              </li>
+              <li>
+                <b>Review and Recall:</b> ReMinder will analyze your summary and
+                ask you questions about information you may have missed or
+                misunderstood.
+              </li>
+            </ol>
+            <p className="text-pretty text-center">
+              Let's start learning! Enter a topic to get started.
+            </p>
+            <div className="mt-4 flex justify-center">
+              <button
+                onClick={handleCloseModal}
+                className="bg-blue-500 text-white rounded p-2"
+              >
+                Start Learning!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         id="chat-container"
-        className="h-5/6 border rounded p-4 overflow-y-auto mb-4"
+        className="border rounded p-4 h-96 overflow-y-auto mb-4"
       >
         {messages.map((msg, index) => (
           <div
@@ -237,16 +292,19 @@ export default function Home() {
         </form>
       )}
       {/* confirm the topic u want */}
-      {userConfirmed && !isTopicConfirmed && (
-        <div className="flex">
-          <button
-            className="bg-green-500 text-white rounded p-2"
-            onClick={() => handleTopicConfirm(true)}
-          >
-            Confirm Topic
-          </button>
-        </div>
-      )}
+      {/* {!isPassageVisible &&
+        !isReady &&
+        isTopicConfirmed == false &&
+        messages.length > 1 && (
+          <div className="flex">
+            <button
+              className="bg-green-500 text-white rounded p-2 mr-2"
+              onClick={() => handleTopicConfirm(true)}
+            >
+              Confirm Topic
+            </button>
+          </div>
+        )} */}
 
       {/* topic passage */}
       {isPassageVisible && (

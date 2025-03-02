@@ -1,6 +1,6 @@
 "use client"; // This is a client component
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, ChangeEvent } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Send, X } from "lucide-react";
 
@@ -37,13 +37,30 @@ export default function Home() {
     {
       role: "model",
       content:
-        "Welcome to ReMinder! I am Pixel the Parrot, choose a topic you'd like to learn about.",
+        "Welcome to ReMinder! I am Pixel the Parrot, upload a PDF to begin.",
     },
   ]);
   const [loading, setLoading] = useState<boolean>(false);
   const [isPassageVisible, setIsPassageVisible] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
   const [instructionsModal, setInstructions] = useState<boolean>(true);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+
+  const handlePdfChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const pdf = event.target.files[0];
+      if (pdf.type === "application/pdf") {
+        setPdfFile(pdf);
+        setMessages([
+          ...messages,
+          { role: "user", content: "Uploaded PDF" },
+          { role: "model", content: "PDF Received!" },
+        ]);
+      } else {
+        alert("Only accept PDF type file.");
+      }
+    }
+  };
 
   const handleReady = () => {
     setIsReady(true);
@@ -101,9 +118,6 @@ export default function Home() {
       return;
     }
     setLoading(true);
-    // setMessages([...messages, { role: "user", content: userSummary }]);
-    // const result = await chat.sendMessage(userSummary);
-    // const response = result.response.text();
 
     setUserSummary("");
     try {
@@ -123,7 +137,6 @@ export default function Home() {
          the user to recall the missing information. Make the conversation smooth. If the user states that they cannot remember, 
          provide them with the answer. The interaction should end when the user repeats most of the information in \n${passage}\n`
       );
-      //   const storeHistory = await chat.sendMessage(result.response.text());
       const response = result.response.text();
     } catch (error) {
       console.error("Error generating feedback:", error);
@@ -153,7 +166,7 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-white container mx-auto p-4">
+    <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">ReMinder Chat</h1>
       {/* instructions */}
       {instructionsModal && (
@@ -174,25 +187,16 @@ export default function Home() {
             </p>
             <ol className="list-decimal pl-6 mb-4">
               <li>
-                <b>Choose a Topic:</b> Enter any topic you need to be tested on
-                in the input box.
+                <b>Choose a PDF: </b> Upload a PDF of the notes or passage that
+                you want to learn from.
               </li>
               <li>
-                <b>Confirm:</b> ReMinder will confirm with you that you want to
-                learn about that specific topic.
+                <b>Summarize:</b> ReMinder will then analyze the provided notes
+                or passage and reiterrate a summarized version
               </li>
               <li>
-                <b>Read the Passage:</b> There wil be a generated short passage
-                about the chosen topic. You will need to read it carefully.
-              </li>
-              <li>
-                <b>Summarize:</b> Once you feel ready, click the "READY" button.
-                Then, try to write a summary of what you read in your own words.
-              </li>
-              <li>
-                <b>Review and Recall:</b> ReMinder will analyze your summary and
-                ask you questions about information you may have missed or
-                misunderstood.
+                <b>Review and Recall:</b> You then can repeat key parts, where
+                ReMinder will quiz you to test how much you remember!
               </li>
             </ol>
             <p className="text-pretty text-center">
@@ -233,23 +237,32 @@ export default function Home() {
 
       {/* Topic Input */}
       {!isPassageVisible && !isReady && (
-        <form onSubmit={handleTopicSubmit} className="mb-4">
-          <div className="flex">
-            <input
-              type="text"
-              className="border rounded p-2 flex-grow mr-2"
-              placeholder="Enter a topic..."
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-            />
-            <button
-              type="submit"
-              className="bg-blue-500 text-white rounded p-2"
-            >
-              <Send />
-            </button>
-          </div>
-        </form>
+        <div>
+          <form onSubmit={handleTopicSubmit} className="mb-4">
+            <div className="flex">
+              <input
+                type="text"
+                className="border rounded p-2 flex-grow mr-2"
+                placeholder="Enter a topic..."
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="bg-blue-500 text-white rounded p-2"
+              >
+                <Send />
+              </button>
+            </div>
+          </form>
+
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={handlePdfChange}
+            className="mb-4"
+          />
+        </div>
       )}
       {/* topic passage */}
       {isPassageVisible && (
