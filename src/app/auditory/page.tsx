@@ -285,12 +285,14 @@ export default function Home() {
                 learn.
               </li>
               <li>
-                <b>Summarize:</b> ReMinder will analyze the content and create a
-                summarized version.
+                <b>Audio Summary:</b> ReMinder will analyze the content and
+                create a summarized version which will then be spoken out loud
+                to you.
               </li>
               <li>
                 <b>Review and Recall:</b> You then can repeat key parts, where
-                ReMinder will quiz you to test how much you remember!
+                ReMinder will continue to verbally quiz you to test how much you
+                remember!
               </li>
             </ol>
             <p className="text-pretty text-center">

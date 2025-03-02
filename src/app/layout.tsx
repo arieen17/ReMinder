@@ -1,9 +1,10 @@
 /* eslint-disable new-cap */
 import type { Metadata } from "next";
 import "./globals.css";
-import { Inter } from "next/font/google";
+import { Outfit, Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
+const outfit = Outfit({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "ReMinder",
@@ -15,7 +16,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-gray-300`}>{children}</body>
+      <body className={`${outfit.className} bg-gray-300`}>{children}</body>
     </html>
   );
 }
