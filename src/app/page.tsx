@@ -1,13 +1,14 @@
-"use client"; // This is a client component
+"use client";
+import { Send } from "lucide-react";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, FormEvent } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_API_KEY || "");
 const model = genAI.getGenerativeModel({
   model: "gemini-1.5-flash",
   systemInstruction:
-    "You are a parrot mascot, and your name is Pixel. Introduce yourself like a parrot, but when discussing the topic speak formally/ educationally",
+    "You are a nice and encouraging teacher for learning students one on one and help by helping students recall from a passage through further questions. You do not directly state you are talking to a user or state that you are asking questions.",
 });
 
 type ChatMessage = {
@@ -17,6 +18,7 @@ type ChatMessage = {
 
 export default function Home() {
   const [topic, setTopic] = useState<string>("");
+  const [confirmedTopic, setConfirmedTopic] = useState<string>("");
   const [passage, setPassage] = useState<string>("");
   const [userSummary, setUserSummary] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -28,31 +30,29 @@ export default function Home() {
   ]);
   const [loading, setLoading] = useState<boolean>(false);
   const [isPassageVisible, setIsPassageVisible] = useState<boolean>(false);
+  const [isReady, setIsReady] = useState<boolean>(false);
+  const [isTopicConfirmed, setIsTopicConfirmed] = useState<boolean>(false);
+  const [userConfirmed, setUserConfirmed] = useState<boolean>(false);
 
   const handleTopicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic) {
       return;
     }
-
     setLoading(true);
     setMessages([...messages, { role: "user", content: `${topic}` }]);
 
     try {
       const result = await model.generateContent(
-        `Generate a short passage about ${topic}.`
+        `ask if they want to confirm ${topic} or want to dive into more specific topics`
       );
-      const newPassage = result.response.text();
-      setPassage(newPassage);
+      const response = result.response.text();
       setMessages([
         ...messages,
         { role: "user", content: `${topic}` },
-        {
-          role: "model",
-          content: `Here is the passage about ${topic}:\n\n ${newPassage}\n\n Read and then, summarize.`,
-        },
+        { role: "model", content: `${response}` },
       ]);
-      setIsPassageVisible(true);
+      setUserConfirmed(true);
     } catch (error) {
       console.error("Error generating passage:", error);
       setMessages([
@@ -67,8 +67,56 @@ export default function Home() {
       setLoading(false);
     }
   };
+  const handleTopicConfirm = async (confirm: boolean) => {
+    setLoading(true);
+    if (confirm) {
+      setConfirmedTopic(topic);
+      setIsTopicConfirmed(true);
+      setMessages([...messages, { role: "user", content: `Confirmed Topic!` }]);
 
-  const handleSummarySubmit = async (e: React.FormEvent) => {
+      try {
+        const result = await model.generateContent(
+          `Generate a short passage about ${topic}.`
+        );
+        const newPassage = result.response.text();
+        setPassage(newPassage);
+        setMessages([
+          ...messages,
+          { role: "user", content: `Confirmed Topic!` },
+          {
+            role: "model",
+            content: `Here is the passage about your topic:\n\n Read the passage and when prepared, select READY.`,
+          },
+        ]);
+        setIsPassageVisible(true);
+      } catch (error) {
+        console.error("Error generating passage:", error);
+        setMessages([
+          ...messages,
+          { role: "user", content: `${confirmedTopic}` },
+          {
+            role: "model",
+            content: "Sorry, there was an error generating the passage.",
+          },
+        ]);
+      }
+    }
+
+    setLoading(false);
+  };
+
+  const handleReady = () => {
+    setIsReady(true);
+    setIsPassageVisible(false);
+    setMessages([
+      ...messages,
+      {
+        role: "model",
+        content: `Try your best to write a summary of the covered topics.`,
+      },
+    ]);
+  };
+  const handleSummarySubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!userSummary) {
       return;
@@ -78,7 +126,7 @@ export default function Home() {
     setUserSummary("");
     try {
       const result = await model.generateContent(
-        `Original Passage:\n${passage}\n\nUser Summary:\n${userSummary}\n\nAnalyze the user's summary. Identify key information that is missing or inaccurate compared to the original passage. Then, formulate a question that is designed to trigger the user to recall the missing information. Make it specific, and only ask one question.`
+        `Original Passage:\n${passage}\n\nUser Summary:\n${userSummary}\n\nAnalyze the user's summary. Identify key information that is missing or inaccurate compared to the original passage. Then, formulate a question that is designed to trigger the user to recall the missing information. If all key details there, say "Great job! Your summary is complete."`
       );
       const response = result.response.text();
       setMessages([
@@ -102,7 +150,6 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Scroll to the bottom of the chat on new messages
     const chatContainer = document.getElementById("chat-container");
     if (chatContainer) {
       chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -110,11 +157,13 @@ export default function Home() {
   }, [messages]);
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">ReMinder Chat</h1>
+    <div className=" bg-white mx-auto p-4 h-screen w-8/12">
+      <div className="text-2xl font-bold mb-4 justify-center flex">
+        ReMinder
+      </div>
       <div
         id="chat-container"
-        className="border rounded p-4 h-96 overflow-y-auto mb-4"
+        className="h-5/6 border rounded p-4 overflow-y-auto mb-4"
       >
         {messages.map((msg, index) => (
           <div
@@ -134,8 +183,8 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Topic Input */}
-      {!isPassageVisible && (
+      {/* to enter topic */}
+      {!isPassageVisible && !isReady && !isTopicConfirmed && (
         <form onSubmit={handleTopicSubmit} className="mb-4">
           <div className="flex">
             <input
@@ -149,30 +198,54 @@ export default function Home() {
               type="submit"
               className="bg-blue-500 text-white rounded p-2"
             >
-              Go
+              <Send />
             </button>
           </div>
         </form>
       )}
-      {/* Passage */}
+      {/* confirm the topic u want */}
+      {userConfirmed && !isTopicConfirmed && (
+        <div className="flex">
+          <button
+            className="bg-green-500 text-white rounded p-2"
+            onClick={() => handleTopicConfirm(true)}
+          >
+            Confirm Topic
+          </button>
+        </div>
+      )}
+
+      {/* topic passage */}
       {isPassageVisible && (
         <div className="border rounded p-4 mb-4">
           <h2 className="text-lg font-semibold mb-2">Passage</h2>
           <p>{passage}</p>
+          <button
+            className="bg-blue-800 text-white rounded p-2 mt-4"
+            onClick={handleReady}
+          >
+            READY
+          </button>
         </div>
       )}
 
-      {/* Summary Input */}
-      {isPassageVisible && (
+      {/* summary + answer question input */}
+      {!isPassageVisible && isReady && (
         <form onSubmit={handleSummarySubmit} className="mb-4">
           <textarea
             className="border rounded p-2 w-full mb-2"
-            placeholder="Write your summary here..."
+            placeholder="Write your response here..."
             value={userSummary}
             onChange={(e) => setUserSummary(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSummarySubmit(e);
+              }
+            }}
           />
           <button type="submit" className="bg-blue-500 text-white rounded p-2">
-            Submit Summary
+            Submit Response
           </button>
         </form>
       )}
